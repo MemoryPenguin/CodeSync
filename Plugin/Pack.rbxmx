@@ -1,0 +1,1008 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+	<External>null</External>
+	<External>nil</External>
+	<Item class="Folder" referent="RBX246749DDA46E4EF8A630BD3FBCB01888">
+		<Properties>
+			<string name="Name">Modules</string>
+		</Properties>
+		<Item class="ModuleScript" referent="RBX6794C0B457BB462F8A2E5DA1D679CB14">
+			<Properties>
+				<Content name="LinkedSource"><null></null></Content>
+				<string name="Name">Accessor</string>
+				<ProtectedString name="Source"><![CDATA[local HttpService = game:GetService("HttpService")
+
+local Accessor = {}
+Accessor.__index = Accessor
+
+Accessor.HOST = "http://localhost:%d/"
+
+function Accessor.new(port)
+	local self = setmetatable({}, Accessor)
+	self.Port = port
+	
+	return self
+end
+
+function Accessor:GetFromServer(requestString)
+	local url = Accessor.HOST:format(self.Port)..requestString
+	
+	local succeeded, result = pcall(function()
+		return HttpService:GetAsync(url)
+	end)
+	
+	if not succeeded then
+		--warn("Couldn't access the local server at port "..self.Port.."; ensure it is running and HttpService.HttpEnabled is true.", 0)
+		return false
+	else
+		return result
+	end
+end
+
+function Accessor:GetJson(request)
+	local json = self:GetFromServer(request)
+	
+	if json then
+		return HttpService:JSONDecode(json)
+	end
+end
+
+function Accessor:GetFileList()
+	return self:GetJson("list")
+end
+
+function Accessor:GetSyncInfo()
+	return self:GetJson("info")
+end
+
+function Accessor:GetChangedFiles()
+	return self:GetJson("changes")
+end
+
+function Accessor:ReadFile(file)
+	return self:GetFromServer("read?file="..file)
+end
+
+function Accessor.TryReach(port)
+	return pcall(function()
+		return HttpService:JSONDecode(HttpService:GetAsync(Accessor.HOST:format(port).."info"))
+	end)
+end
+
+return Accessor]]></ProtectedString>
+			</Properties>
+		</Item>
+		<Item class="ModuleScript" referent="RBXB1F8326777284259A0338A89C8D2F863">
+			<Properties>
+				<Content name="LinkedSource"><null></null></Content>
+				<string name="Name">Path</string>
+				<ProtectedString name="Source"><![CDATA[local Path = {}
+
+function Path.Split(pathStr)
+	local parts = {}
+	
+	for chunk in pathStr:gmatch("[^%.]+") do
+		table.insert(parts, chunk)
+	end
+	
+	return parts
+end
+
+function Path.IsValid(pathStr, start)
+	start = start or game
+	
+	local parts = Path.Split(pathStr)
+	
+	for _, part in ipairs(parts) do
+		-- skip redundant 'game' if it's the first part
+		if start == game and part ~= "game" or start ~= game then
+			start = start:FindFirstChild(part)
+			
+			if not start then
+				return false
+			end
+		end
+	end
+	
+	return true
+end
+
+function Path.CreateTree(pathStr, start, ignoreLast, instanceType)
+	instanceType = instanceType or "Folder"
+	start = start or game
+	
+	local parts = Path.Split(pathStr)
+	
+	for index, part in ipairs(parts) do
+		-- skip redundant 'game' if it's the first part
+		if start == game and part ~= "game" or start ~= game then
+			local nextObj = start:FindFirstChild(part)
+			
+			if not nextObj and (ignoreLast and index ~= #parts or not ignoreLast) then
+				nextObj = Instance.new(instanceType, start)
+				nextObj.Name = part
+			end
+			
+			if nextObj then
+				start = nextObj
+			end
+		end
+	end
+	
+	return start
+end
+
+function Path.GetObjectAt(pathStr, start)
+	start = start or game
+	
+	local parts = Path.Split(pathStr)
+	
+	for _, part in ipairs(parts) do
+		start = start:FindFirstChild(part)
+		
+		if not start then
+			return nil
+		end
+	end
+	
+	return start
+end
+
+function Path.OSToROBLOXPath(ospath)
+	local path = ospath:gsub("%.[%.%w]+$", "") -- remove extensions
+	path = path:gsub("[\\/]", "%.") -- change separators to .
+	
+	return path
+end
+
+return Path]]></ProtectedString>
+			</Properties>
+		</Item>
+		<Item class="ModuleScript" referent="RBX7DB5DA7C503E46FEB7E37BE7561E0486">
+			<Properties>
+				<Content name="LinkedSource"><null></null></Content>
+				<string name="Name">Project</string>
+				<ProtectedString name="Source"><![CDATA[local Accessor = require(script.Parent.Accessor)
+local Path = require(script.Parent.Path)
+local ScriptHelper = require(script.Parent.ScriptHelper)
+
+local Project = {}
+Project.__index = Project
+
+function Project.new(target, port)
+	local self = setmetatable({}, Project)
+	self.Accessor = Accessor.new(port)
+	self.Objects = {}
+	self.Target = Path.CreateFolderTree(target)
+	self.Target:ClearAllChildren()
+	
+	return self
+end
+
+-- syncs the initial project
+function Project:Sync()
+	local list = self.Accessor:GetFileList()
+	
+	for _, file in ipairs(list) do
+		local path = Path.OSToROBLOXPath(file)
+		print(path)
+		local parts = Path.Split(path)
+		local name = parts[#parts]
+		local container = Path.CreateFolderTree(path, self.Target, true)
+		
+		if container:FindFirstChild(name) then
+			container:FindFirstChild(name):Destroy()
+		end
+		
+		local type = ScriptHelper.GetType(file)
+		
+		local object = Instance.new(type, container)
+		object.Name = name
+		object.Source = self.Accessor:ReadFile(file)
+		self.Objects[file] = object
+		
+		print("Synced `"..file.."` to `"..self.Target:GetFullName()..path.."`.")
+	end
+end
+
+-- updates the project
+function Project:Update()
+	local changes = self.Accessor:GetChangedFiles()
+	
+	for _, change in ipairs(changes) do
+		local path = Path.OSToROBLOXPath(change.Path)
+		local object = Path.GetObjectAt(path, self.Target)
+		
+		-- write
+		if change.Type == 0 then
+			-- creation
+			if not object then
+				local type = ScriptHelper.GetType(change.Path)
+				object = Instance.new(type)
+				object.Parent = Path.CreateFolderTree(path, self.Target, true)
+				object.Source = self.Accessor:ReadFile(change.Path)
+				print("Created object for "..change.Path)
+			-- modification
+			else
+				object.Source = self.Accessor:ReadFile(change.Path)
+				print("Synchronized changes to "..change.Path)
+			end
+		-- delete
+		elseif change.Type == 1 then
+			print("Removed "..object:GetFullName().." because "..change.Path.." was removed.")
+			object:Destroy()
+		else
+			warn("Encountered an unsupported change type "..change.Type.." while synchronizing "..change.Path.."! CodeSync may be outdated!")
+		end
+	end
+end
+
+return Project]]></ProtectedString>
+			</Properties>
+		</Item>
+		<Item class="ModuleScript" referent="RBXA26CDCDA7EBC43E3B9BBD68D74A6282E">
+			<Properties>
+				<Content name="LinkedSource"><null></null></Content>
+				<string name="Name">ScriptHelper</string>
+				<ProtectedString name="Source"><![CDATA[local ScriptHelper = {}
+
+function ScriptHelper.GetType(filePath)
+	local section = filePath:match("%w+%.(%w+)%.%w+")
+	
+	if section then
+		section = section:lower()
+	end
+	
+	if section == "local" then
+		return "LocalScript"
+	elseif section == "module" then
+		return "ModuleScript"
+	else
+		return "Script"
+	end
+end
+
+return ScriptHelper]]></ProtectedString>
+			</Properties>
+		</Item>
+		<Item class="ModuleScript" referent="RBX11EB3461409D4FB6AC0DED37C2A57E1A">
+			<Properties>
+				<Content name="LinkedSource"><null></null></Content>
+				<string name="Name">UI</string>
+				<ProtectedString name="Source"><![CDATA[local CoreGui = game:GetService("CoreGui")
+
+local Accessor = require(script.Parent.Accessor)
+
+local Object = script.CodeSyncUI
+local EnabledColor = Color3.new(34 / 255, 162 / 255, 147 / 255)
+local DisabledColor = Color3.new(162 / 255, 162 / 255, 162 / 255)
+
+local UI = {}
+UI.PortBox = Object.Container.Contents.PortBox.Input
+UI.ToggleButton = Object.Container.Contents.Toggle
+UI.Info = Object.Container.Contents.Info
+
+function UI.Show()
+	Object.Parent = CoreGui
+end
+
+function UI.Hide()
+	Object.Parent = script
+end
+
+function UI.IsVisible()
+	return Object.Parent == CoreGui
+end
+
+function UI.SetInfoText(text)
+	Object.Container.Contents.Info.Text = text
+end
+
+function UI.GetInfoText()
+	return Object.Container.Contents.Info.Text
+end
+
+function UI.GetPort()
+	return tonumber(Object.Container.Contents.PortBox.Input.Text)
+end
+
+function UI.FreezeButton()
+	UI.ToggleButton.Active = false
+	UI.ToggleButton.AutoButtonColor = false
+	UI.ToggleButton.BackgroundColor3 = DisabledColor
+end
+
+function UI.ThawButton()
+	UI.ToggleButton.Active = true
+	UI.ToggleButton.AutoButtonColor = true
+	UI.ToggleButton.BackgroundColor3 = EnabledColor
+end
+
+function UI.FreezePortBox()
+	UI.PortBox.Active = false
+	UI.PortBox.BackgroundColor3 = DisabledColor
+	UI.PortBox:ReleaseFocus()
+end
+
+function UI.ThawPortBox()
+	UI.PortBox.Active = true
+	UI.PortBox.BackgroundColor3 = Color3.new(240 / 255, 240 / 255, 240 / 255)
+end
+
+function UI.CheckPort()
+	local port = tonumber(UI.PortBox.Text)
+	
+	UI.FreezeButton()
+	
+	if UI.PortBox.Text == "" then
+		UI.SetInfoText("Enter a port to get started.")
+	elseif not port or port > 65535 then
+		UI.SetInfoText("This port doesn't work! It should be a number between 1 and 65535.")
+	else
+		UI.ThawButton()
+		UI.SetInfoText("Ready to start sync.")
+	end
+end
+
+UI.PortBox.FocusLost:connect(UI.CheckPort)
+
+UI.CheckPort()
+
+return UI]]></ProtectedString>
+			</Properties>
+			<Item class="ScreenGui" referent="RBX9580E1EC1A784049A61D8F1207DA7130">
+				<Properties>
+					<string name="Name">CodeSyncUI</string>
+				</Properties>
+				<Item class="Frame" referent="RBXC8790525415046CDB769D0E06AEBBC8D">
+					<Properties>
+						<bool name="Active">false</bool>
+						<Color3 name="BackgroundColor3">4292664540</Color3>
+						<float name="BackgroundTransparency">0</float>
+						<Color3 name="BorderColor3">4286611584</Color3>
+						<int name="BorderSizePixel">1</int>
+						<bool name="ClipsDescendants">false</bool>
+						<bool name="Draggable">false</bool>
+						<string name="Name">Container</string>
+						<Ref name="NextSelectionDown">null</Ref>
+						<Ref name="NextSelectionLeft">null</Ref>
+						<Ref name="NextSelectionRight">null</Ref>
+						<Ref name="NextSelectionUp">null</Ref>
+						<UDim2 name="Position">
+							<XS>0.5</XS>
+							<XO>-275</XO>
+							<YS>0.5</YS>
+							<YO>-115</YO>
+						</UDim2>
+						<float name="Rotation">0</float>
+						<bool name="Selectable">false</bool>
+						<Ref name="SelectionImageObject">null</Ref>
+						<UDim2 name="Size">
+							<XS>0</XS>
+							<XO>550</XO>
+							<YS>0</YS>
+							<YO>230</YO>
+						</UDim2>
+						<token name="SizeConstraint">0</token>
+						<token name="Style">0</token>
+						<bool name="Visible">true</bool>
+						<int name="ZIndex">1</int>
+					</Properties>
+					<Item class="TextLabel" referent="RBXB878989FD91A4592A496E999B9892C09">
+						<Properties>
+							<bool name="Active">false</bool>
+							<Color3 name="BackgroundColor3">4293980400</Color3>
+							<float name="BackgroundTransparency">0</float>
+							<Color3 name="BorderColor3">4286611584</Color3>
+							<int name="BorderSizePixel">1</int>
+							<bool name="ClipsDescendants">false</bool>
+							<bool name="Draggable">false</bool>
+							<token name="Font">5</token>
+							<token name="FontSize">7</token>
+							<string name="Name">Title</string>
+							<Ref name="NextSelectionDown">null</Ref>
+							<Ref name="NextSelectionLeft">null</Ref>
+							<Ref name="NextSelectionRight">null</Ref>
+							<Ref name="NextSelectionUp">null</Ref>
+							<UDim2 name="Position">
+								<XS>0</XS>
+								<XO>0</XO>
+								<YS>0</YS>
+								<YO>0</YO>
+							</UDim2>
+							<float name="Rotation">0</float>
+							<bool name="Selectable">false</bool>
+							<Ref name="SelectionImageObject">null</Ref>
+							<UDim2 name="Size">
+								<XS>1</XS>
+								<XO>0</XO>
+								<YS>0</YS>
+								<YO>40</YO>
+							</UDim2>
+							<token name="SizeConstraint">0</token>
+							<string name="Text">CodeSync</string>
+							<Color3 name="TextColor3">4280361249</Color3>
+							<bool name="TextScaled">false</bool>
+							<Color3 name="TextStrokeColor3">4278190080</Color3>
+							<float name="TextStrokeTransparency">1</float>
+							<float name="TextTransparency">0</float>
+							<bool name="TextWrapped">false</bool>
+							<token name="TextXAlignment">2</token>
+							<token name="TextYAlignment">1</token>
+							<bool name="Visible">true</bool>
+							<int name="ZIndex">1</int>
+						</Properties>
+						<Item class="ImageLabel" referent="RBX1AFF42A2636243248E9334A1C0AB8660">
+							<Properties>
+								<bool name="Active">false</bool>
+								<Color3 name="BackgroundColor3">4294967295</Color3>
+								<float name="BackgroundTransparency">1</float>
+								<Color3 name="BorderColor3">4279970357</Color3>
+								<int name="BorderSizePixel">1</int>
+								<bool name="ClipsDescendants">false</bool>
+								<bool name="Draggable">false</bool>
+								<Content name="Image"><url>rbxassetid://347774392</url></Content>
+								<Color3 name="ImageColor3">4294967295</Color3>
+								<Vector2 name="ImageRectOffset">
+									<X>0</X>
+									<Y>0</Y>
+								</Vector2>
+								<Vector2 name="ImageRectSize">
+									<X>0</X>
+									<Y>0</Y>
+								</Vector2>
+								<float name="ImageTransparency">0</float>
+								<string name="Name">Logo</string>
+								<Ref name="NextSelectionDown">null</Ref>
+								<Ref name="NextSelectionLeft">null</Ref>
+								<Ref name="NextSelectionRight">null</Ref>
+								<Ref name="NextSelectionUp">null</Ref>
+								<UDim2 name="Position">
+									<XS>1</XS>
+									<XO>-40</XO>
+									<YS>0</YS>
+									<YO>0</YO>
+								</UDim2>
+								<float name="Rotation">0</float>
+								<token name="ScaleType">0</token>
+								<bool name="Selectable">false</bool>
+								<Ref name="SelectionImageObject">null</Ref>
+								<UDim2 name="Size">
+									<XS>0</XS>
+									<XO>40</XO>
+									<YS>0</YS>
+									<YO>40</YO>
+								</UDim2>
+								<token name="SizeConstraint">0</token>
+								<Rect2D name="SliceCenter">
+									<min>
+										<X>0</X>
+										<Y>0</Y>
+									</min>
+									<max>
+										<X>0</X>
+										<Y>0</Y>
+									</max>
+								</Rect2D>
+								<bool name="Visible">true</bool>
+								<int name="ZIndex">2</int>
+							</Properties>
+						</Item>
+					</Item>
+					<Item class="Frame" referent="RBXCBD42B131D9A400AAC352B351D82E96D">
+						<Properties>
+							<bool name="Active">false</bool>
+							<Color3 name="BackgroundColor3">4293980400</Color3>
+							<float name="BackgroundTransparency">0</float>
+							<Color3 name="BorderColor3">4286611584</Color3>
+							<int name="BorderSizePixel">1</int>
+							<bool name="ClipsDescendants">false</bool>
+							<bool name="Draggable">false</bool>
+							<string name="Name">Contents</string>
+							<Ref name="NextSelectionDown">null</Ref>
+							<Ref name="NextSelectionLeft">null</Ref>
+							<Ref name="NextSelectionRight">null</Ref>
+							<Ref name="NextSelectionUp">null</Ref>
+							<UDim2 name="Position">
+								<XS>0</XS>
+								<XO>0</XO>
+								<YS>0</YS>
+								<YO>45</YO>
+							</UDim2>
+							<float name="Rotation">0</float>
+							<bool name="Selectable">false</bool>
+							<Ref name="SelectionImageObject">null</Ref>
+							<UDim2 name="Size">
+								<XS>1</XS>
+								<XO>0</XO>
+								<YS>1</YS>
+								<YO>-45</YO>
+							</UDim2>
+							<token name="SizeConstraint">0</token>
+							<token name="Style">0</token>
+							<bool name="Visible">true</bool>
+							<int name="ZIndex">1</int>
+						</Properties>
+						<Item class="TextButton" referent="RBX008CC00EB1904443B2DED1FF18BBB772">
+							<Properties>
+								<bool name="Active">false</bool>
+								<bool name="AutoButtonColor">false</bool>
+								<Color3 name="BackgroundColor3">4288848546</Color3>
+								<float name="BackgroundTransparency">0</float>
+								<Color3 name="BorderColor3">4286611584</Color3>
+								<int name="BorderSizePixel">1</int>
+								<bool name="ClipsDescendants">false</bool>
+								<bool name="Draggable">false</bool>
+								<token name="Font">4</token>
+								<token name="FontSize">6</token>
+								<bool name="Modal">false</bool>
+								<string name="Name">Toggle</string>
+								<Ref name="NextSelectionDown">null</Ref>
+								<Ref name="NextSelectionLeft">null</Ref>
+								<Ref name="NextSelectionRight">null</Ref>
+								<Ref name="NextSelectionUp">null</Ref>
+								<UDim2 name="Position">
+									<XS>0.300000012</XS>
+									<XO>0</XO>
+									<YS>1</YS>
+									<YO>-40</YO>
+								</UDim2>
+								<float name="Rotation">0</float>
+								<bool name="Selectable">true</bool>
+								<bool name="Selected">false</bool>
+								<Ref name="SelectionImageObject">null</Ref>
+								<UDim2 name="Size">
+									<XS>0.400000006</XS>
+									<XO>0</XO>
+									<YS>0</YS>
+									<YO>30</YO>
+								</UDim2>
+								<token name="SizeConstraint">0</token>
+								<token name="Style">0</token>
+								<string name="Text">Start Sync</string>
+								<Color3 name="TextColor3">4293980400</Color3>
+								<bool name="TextScaled">false</bool>
+								<Color3 name="TextStrokeColor3">4278190080</Color3>
+								<float name="TextStrokeTransparency">0.800000012</float>
+								<float name="TextTransparency">0</float>
+								<bool name="TextWrapped">false</bool>
+								<token name="TextXAlignment">2</token>
+								<token name="TextYAlignment">1</token>
+								<bool name="Visible">true</bool>
+								<int name="ZIndex">1</int>
+							</Properties>
+						</Item>
+						<Item class="Frame" referent="RBXCF833EC8FAA14EA8A953055DA02BBB1F">
+							<Properties>
+								<bool name="Active">false</bool>
+								<Color3 name="BackgroundColor3">4293980400</Color3>
+								<float name="BackgroundTransparency">0</float>
+								<Color3 name="BorderColor3">4286611584</Color3>
+								<int name="BorderSizePixel">1</int>
+								<bool name="ClipsDescendants">false</bool>
+								<bool name="Draggable">false</bool>
+								<string name="Name">PortBox</string>
+								<Ref name="NextSelectionDown">null</Ref>
+								<Ref name="NextSelectionLeft">null</Ref>
+								<Ref name="NextSelectionRight">null</Ref>
+								<Ref name="NextSelectionUp">null</Ref>
+								<UDim2 name="Position">
+									<XS>0.100000001</XS>
+									<XO>0</XO>
+									<YS>0</YS>
+									<YO>10</YO>
+								</UDim2>
+								<float name="Rotation">0</float>
+								<bool name="Selectable">false</bool>
+								<Ref name="SelectionImageObject">null</Ref>
+								<UDim2 name="Size">
+									<XS>0.800000012</XS>
+									<XO>0</XO>
+									<YS>0</YS>
+									<YO>30</YO>
+								</UDim2>
+								<token name="SizeConstraint">0</token>
+								<token name="Style">0</token>
+								<bool name="Visible">true</bool>
+								<int name="ZIndex">1</int>
+							</Properties>
+							<Item class="TextLabel" referent="RBX7364F4DBE3E64EC38A21020A4BB20019">
+								<Properties>
+									<bool name="Active">false</bool>
+									<Color3 name="BackgroundColor3">4293980400</Color3>
+									<float name="BackgroundTransparency">0</float>
+									<Color3 name="BorderColor3">4286611584</Color3>
+									<int name="BorderSizePixel">1</int>
+									<bool name="ClipsDescendants">false</bool>
+									<bool name="Draggable">false</bool>
+									<token name="Font">3</token>
+									<token name="FontSize">6</token>
+									<string name="Name">Hint</string>
+									<Ref name="NextSelectionDown">null</Ref>
+									<Ref name="NextSelectionLeft">null</Ref>
+									<Ref name="NextSelectionRight">null</Ref>
+									<Ref name="NextSelectionUp">null</Ref>
+									<UDim2 name="Position">
+										<XS>0</XS>
+										<XO>0</XO>
+										<YS>0</YS>
+										<YO>0</YO>
+									</UDim2>
+									<float name="Rotation">0</float>
+									<bool name="Selectable">false</bool>
+									<Ref name="SelectionImageObject">null</Ref>
+									<UDim2 name="Size">
+										<XS>0.5</XS>
+										<XO>0</XO>
+										<YS>1</YS>
+										<YO>0</YO>
+									</UDim2>
+									<token name="SizeConstraint">0</token>
+									<string name="Text">Server Port:</string>
+									<Color3 name="TextColor3">4280361249</Color3>
+									<bool name="TextScaled">false</bool>
+									<Color3 name="TextStrokeColor3">4278190080</Color3>
+									<float name="TextStrokeTransparency">1</float>
+									<float name="TextTransparency">0</float>
+									<bool name="TextWrapped">false</bool>
+									<token name="TextXAlignment">2</token>
+									<token name="TextYAlignment">1</token>
+									<bool name="Visible">true</bool>
+									<int name="ZIndex">1</int>
+								</Properties>
+							</Item>
+							<Item class="TextBox" referent="RBX34B43B09E66F4813B1B7B4A5FF0B5855">
+								<Properties>
+									<bool name="Active">true</bool>
+									<Color3 name="BackgroundColor3">4293980400</Color3>
+									<float name="BackgroundTransparency">0</float>
+									<Color3 name="BorderColor3">4286611584</Color3>
+									<int name="BorderSizePixel">1</int>
+									<bool name="ClearTextOnFocus">true</bool>
+									<bool name="ClipsDescendants">false</bool>
+									<bool name="Draggable">false</bool>
+									<token name="Font">3</token>
+									<token name="FontSize">6</token>
+									<bool name="MultiLine">false</bool>
+									<string name="Name">Input</string>
+									<Ref name="NextSelectionDown">null</Ref>
+									<Ref name="NextSelectionLeft">null</Ref>
+									<Ref name="NextSelectionRight">null</Ref>
+									<Ref name="NextSelectionUp">null</Ref>
+									<UDim2 name="Position">
+										<XS>0.5</XS>
+										<XO>0</XO>
+										<YS>0</YS>
+										<YO>0</YO>
+									</UDim2>
+									<float name="Rotation">0</float>
+									<bool name="Selectable">true</bool>
+									<Ref name="SelectionImageObject">null</Ref>
+									<UDim2 name="Size">
+										<XS>0.5</XS>
+										<XO>0</XO>
+										<YS>1</YS>
+										<YO>0</YO>
+									</UDim2>
+									<token name="SizeConstraint">0</token>
+									<string name="Text">4114</string>
+									<Color3 name="TextColor3">4280361249</Color3>
+									<bool name="TextScaled">false</bool>
+									<Color3 name="TextStrokeColor3">4278190080</Color3>
+									<float name="TextStrokeTransparency">1</float>
+									<float name="TextTransparency">0</float>
+									<bool name="TextWrapped">false</bool>
+									<token name="TextXAlignment">2</token>
+									<token name="TextYAlignment">1</token>
+									<bool name="Visible">true</bool>
+									<int name="ZIndex">1</int>
+								</Properties>
+							</Item>
+						</Item>
+						<Item class="TextLabel" referent="RBX3B47319DAEF64A5780D154E68492488B">
+							<Properties>
+								<bool name="Active">false</bool>
+								<Color3 name="BackgroundColor3">4294967295</Color3>
+								<float name="BackgroundTransparency">1</float>
+								<Color3 name="BorderColor3">4279970357</Color3>
+								<int name="BorderSizePixel">1</int>
+								<bool name="ClipsDescendants">false</bool>
+								<bool name="Draggable">false</bool>
+								<token name="Font">3</token>
+								<token name="FontSize">6</token>
+								<string name="Name">Info</string>
+								<Ref name="NextSelectionDown">null</Ref>
+								<Ref name="NextSelectionLeft">null</Ref>
+								<Ref name="NextSelectionRight">null</Ref>
+								<Ref name="NextSelectionUp">null</Ref>
+								<UDim2 name="Position">
+									<XS>0.150000006</XS>
+									<XO>0</XO>
+									<YS>0</YS>
+									<YO>50</YO>
+								</UDim2>
+								<float name="Rotation">0</float>
+								<bool name="Selectable">false</bool>
+								<Ref name="SelectionImageObject">null</Ref>
+								<UDim2 name="Size">
+									<XS>0.699999988</XS>
+									<XO>0</XO>
+									<YS>0</YS>
+									<YO>85</YO>
+								</UDim2>
+								<token name="SizeConstraint">0</token>
+								<string name="Text">Enter a port to get started.</string>
+								<Color3 name="TextColor3">4280361249</Color3>
+								<bool name="TextScaled">false</bool>
+								<Color3 name="TextStrokeColor3">4278190080</Color3>
+								<float name="TextStrokeTransparency">1</float>
+								<float name="TextTransparency">0</float>
+								<bool name="TextWrapped">true</bool>
+								<token name="TextXAlignment">2</token>
+								<token name="TextYAlignment">1</token>
+								<bool name="Visible">true</bool>
+								<int name="ZIndex">1</int>
+							</Properties>
+						</Item>
+					</Item>
+				</Item>
+			</Item>
+		</Item>
+		<Item class="ModuleScript" referent="RBXDEEEE12329334EAD9D8149C7FF94D8D9">
+			<Properties>
+				<Content name="LinkedSource"><null></null></Content>
+				<string name="Name">ScriptManager</string>
+				<ProtectedString name="Source"><![CDATA[local Path = require(script.Parent.Path)
+
+local ScriptManager = {}
+ScriptManager.__index = ScriptManager
+
+function ScriptManager.new(root)
+	local self = setmetatable({}, ScriptManager)
+	self.Root = root
+	
+	return self
+end
+
+function ScriptManager:GetObject(path)
+	return Path.GetObjectAt(path, self.Root)
+end
+
+function ScriptManager:CreateObject(path, type)
+	if self:GetObject(path) then return self:GetObject(path) end
+	
+	local parts = Path.Split(path)
+	local obj = Instance.new(type)
+	
+	local parent = Path.CreateTree(path, self.Root, true)
+	obj.Parent = parent
+	obj.Name = parts[#parts]
+	return obj
+end
+
+function ScriptManager:RemoveObject(path)
+	local object = self:GetObject(path)
+	
+	if object then
+		while #object.Parent:GetChildren() < 2 and object.Parent ~= self.Root do
+			object = object.Parent
+		end
+		
+		object:Destroy()
+	end
+end
+
+function ScriptManager:SetObjectSource(path, source)
+	local object = self:GetObject(path)
+	
+	if object then
+		object.Source = source
+	end
+end
+
+return ScriptManager]]></ProtectedString>
+			</Properties>
+		</Item>
+		<Item class="ModuleScript" referent="RBXBD5BD768E4DE4109BE8A68A53707745F">
+			<Properties>
+				<Content name="LinkedSource"><null></null></Content>
+				<string name="Name">SyncManager</string>
+				<ProtectedString name="Source"><![CDATA[local Accessor = require(script.Parent.Accessor)
+local Path = require(script.Parent.Path)
+local ScriptHelper = require(script.Parent.ScriptHelper)
+local ScriptManager = require(script.Parent.ScriptManager)
+
+local SyncManager = {}
+SyncManager.__index = SyncManager
+
+SyncManager.StopCauses = {
+	TREE_MODIFIED = "The tree was modified unexpectedly", 
+	HTTP_ERROR = "Couldn't reach the HTTP server",
+	BAD_HTTP_RESPONSE = "Got an unsupported or malformed HTTP response",
+	USER = "Stopped by the user",
+	MISC = "Unexpected Lua error"
+}
+
+SyncManager.RequestInterval = 2.5
+
+function SyncManager.new(port, targetStr)
+	local self = setmetatable({}, SyncManager)
+	self.Accessor = Accessor.new(port)
+	
+	local target = Path.CreateTree(targetStr)
+	self.ScriptManager = ScriptManager.new(target)
+	
+	target.AncestryChanged:connect(function()
+		self:Stop(SyncManager.StopCauses.TREE_MODIFIED)
+	end)
+	
+	target.Changed:connect(function()
+		self:Stop(SyncManager.StopCauses.TREE_MODIFIED)
+	end)
+	
+	self.Syncing = false
+	return self
+end
+
+function SyncManager:Start(stopCallback)
+	local startTick = tick()
+	self.Syncing = startTick
+	self.StopCallback = stopCallback
+	
+	local list = self.Accessor:GetFileList()
+	
+	if not list then
+		self:Stop(SyncManager.StopCauses.HTTP_ERROR)
+		return
+	end
+	
+	for _, filePath in ipairs(list) do
+		local contents = self.Accessor:ReadFile(filePath)
+		
+		if not contents then
+			self:Stop(SyncManager.StopCauses.HTTP_ERROR)
+			return
+		end
+		
+		self:AddFile(filePath)
+		self:UpdateFile(filePath, contents)
+	end
+	
+	spawn(function()
+		while self.Syncing == startTick do
+			wait(SyncManager.SyncInterval)
+			local changes = self.Accessor:GetChangedFiles()
+			if not changes then
+				self:Stop(SyncManager.StopCauses.HTTP_ERROR)
+				return
+			end
+			
+			for _, change in ipairs(changes) do
+				-- modify
+				if change.Type == 0 then
+					local rbxPath = Path.OSToROBLOXPath(change.Path)
+
+					if not self.ScriptManager:GetObject(rbxPath) then
+						self:CreateObject(rbxPath, ScriptHelper.GetType(change.Path))
+					end
+					
+					local contents = self.Accessor:ReadFile(change.Path)
+					
+					if not contents then
+						self:Stop(SyncManager.StopCauses.HTTP_ERROR)
+						return
+					else
+						self:UpdateFile(change.Path, contents)
+					end
+				-- delete
+				elseif change.Type == 1 then
+					self:RemoveFile(change.Path)
+				else
+					self:Stop(SyncManager.StopCauses.BAD_HTTP_RESPONSE)
+					return
+				end
+			end
+		end
+	end)
+end
+
+function SyncManager:Stop(reason)
+	reason = reason or SyncManager.StopCauses.USER
+	self.Syncing = false
+	
+	if self.SyncCallback then
+		self.SyncCallback(reason)
+	end
+end
+
+function SyncManager:AddFile(file)
+	local rbxPath = Path.OSToROBLOXPath(file)
+	local objType = ScriptHelper.GetType(file)
+	self.ScriptManager:CreateObject(rbxPath, objType)
+end
+
+function SyncManager:UpdateFile(file, contents)
+	local rbxPath = Path.OSToROBLOXPath(file)
+	self.ScriptManager:SetObjectSource(rbxPath, contents)
+end
+
+function SyncManager:RemoveFile(file)
+	local rbxPath = Path.OSToROBLOXPath(file)
+	self.ScriptManager:RemoveObject(rbxPath)
+end
+
+return SyncManager]]></ProtectedString>
+			</Properties>
+		</Item>
+	</Item>
+	<Item class="Script" referent="RBX4A1B4A411DF94CF68C6848E7EF4B280E">
+		<Properties>
+			<bool name="Disabled">false</bool>
+			<Content name="LinkedSource"><null></null></Content>
+			<string name="Name">CodeSync</string>
+			<ProtectedString name="Source"><![CDATA[local plugin = plugin -- squelch warnings
+
+local Modules = script.Parent.Modules
+
+local Accessor = require(Modules.Accessor)
+local Path = require(Modules.Path)
+local SyncManager = require(Modules.SyncManager)
+local UI = require(Modules.UI)
+
+local Toolbar = plugin:CreateToolbar("CodeSync")
+local Button = Toolbar:CreateButton("CodeSync", "Allows you to synchronize scripts from your computer to ROBLOX.", "rbxassetid://347676411")
+
+local Open = false
+
+Button.Click:connect(function()
+	Open = not Open
+	Button:SetActive(Open)
+	if Open then
+		UI:Show()
+	else
+		UI:Hide()
+	end
+end)
+
+local CurrentManager = nil
+local InfoFormat = "%s\nSource: %s\nTarget: %s"
+
+UI.ToggleButton.MouseButton1Click:connect(function()
+	UI.FreezeButton()
+
+	if not CurrentManager then
+		UI.FreezePortBox()
+		local port = UI.GetPort()
+		UI.SetInfoText("Testing port...")
+		local success, info = Accessor.TryReach(port)
+		
+		if success then
+			UI.SetInfoText("Starting sync...")
+			
+			CurrentManager = SyncManager.new(port, info.Target)
+			CurrentManager:Start(function(reason)
+				if reason ~= SyncManager.StopReasons.USER then
+					UI.SetInfoText(("Got an error from the sync manager:\n%s"):format(reason))
+				end
+			end)
+			
+			print("Started sync.")
+			UI.ToggleButton.Text = "Stop sync"
+			UI.SetInfoText(InfoFormat:format("Currently syncing", info.Source, info.Target))
+		else
+			UI.ThawPortBox()
+			UI.SetInfoText("Can't reach server on port "..port..", please ensure HttpService.HttpEnabled is true and double-check your configuration.")
+		end
+	else
+		CurrentManager:Stop()
+		print("Stopped sync.")
+		UI.ToggleButton.Text = "Start sync"
+		UI.CheckPort()
+		CurrentManager = nil
+		UI.ThawPortBox()
+	end
+	
+	UI.ThawButton()
+end)]]></ProtectedString>
+		</Properties>
+	</Item>
+</roblox>
