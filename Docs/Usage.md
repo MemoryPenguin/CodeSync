@@ -34,3 +34,10 @@ This is where the files will be synced in ROBLOX. In this example, it's putting 
 4. Run the server with `codesync <config_file>`.
 5. Open the plugin in Studio, enter the port, and press 'Start sync'
 6. Have fun!
+
+## File Names
+CodeSync determines what type of object (`LocalScript`, `ModuleScript`, or `Script`) a file is based on its name. It's simple:
+
+* Files that are in the format `Name.module.extension` are considered `ModuleScripts`.
+* Files that are in the format `Name.local.extension` are considered `LocalScripts`.
+* Anything else is considered a `Script`. You may choose to name those differently; it will not affect this process.

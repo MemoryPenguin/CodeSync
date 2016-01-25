@@ -25,39 +25,49 @@ end)
 local CurrentManager = nil
 local InfoFormat = "%s\nSource: %s\nTarget: %s"
 
+local function StopSync()
+	CurrentManager:Stop()
+	print("Stopped sync.")
+	UI.ToggleButton.Text = "Start sync"
+	UI.CheckPort()
+	CurrentManager = nil
+	UI.ThawPortBox()
+end
+
+local function StartSync()
+	UI.FreezePortBox()
+	local port = UI.GetPort()
+	UI.SetInfoText("Testing port...")
+	local success, info = Accessor.TryReach(port)
+	
+	if success then
+		UI.SetInfoText("Starting sync...")
+		
+		CurrentManager = SyncManager.new(port, info.Target)
+		CurrentManager:Start(function(reason)
+			if reason ~= SyncManager.StopReasons.USER then
+				UI.SetInfoText(("Got an error from the sync manager:\n%s"):format(reason))
+			end
+			
+			StopSync()
+		end)
+		
+		print("Started sync.")
+		UI.ToggleButton.Text = "Stop sync"
+		UI.SetInfoText(InfoFormat:format("Currently syncing", info.Source, info.Target))
+	else
+		UI.ThawPortBox()
+		UI.SetInfoText("Can't reach server on port "..port..", please ensure HttpService.HttpEnabled is true and double-check your configuration.")
+	end
+end
+
 UI.ToggleButton.MouseButton1Click:connect(function()
 	UI.FreezeButton()
 
 	if not CurrentManager then
-		UI.FreezePortBox()
-		local port = UI.GetPort()
-		UI.SetInfoText("Testing port...")
-		local success, info = Accessor.TryReach(port)
-		
-		if success then
-			UI.SetInfoText("Starting sync...")
-			
-			CurrentManager = SyncManager.new(port, info.Target)
-			CurrentManager:Start(function(reason)
-				if reason ~= SyncManager.StopReasons.USER then
-					UI.SetInfoText(("Got an error from the sync manager:\n%s"):format(reason))
-				end
-			end)
-			
-			print("Started sync.")
-			UI.ToggleButton.Text = "Stop sync"
-			UI.SetInfoText(InfoFormat:format("Currently syncing", info.Source, info.Target))
-		else
-			UI.ThawPortBox()
-			UI.SetInfoText("Can't reach server on port "..port..", please ensure HttpService.HttpEnabled is true and double-check your configuration.")
-		end
+		StartSync()
 	else
-		CurrentManager:Stop()
-		print("Stopped sync.")
-		UI.ToggleButton.Text = "Start sync"
-		UI.CheckPort()
-		CurrentManager = nil
-		UI.ThawPortBox()
+		StopSync()
 	end
 	
 	UI.ThawButton()

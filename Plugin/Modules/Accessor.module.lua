@@ -4,6 +4,8 @@ local Accessor = {}
 Accessor.__index = Accessor
 
 Accessor.HOST = "http://localhost:%d/"
+Accessor.NUM_TRIES = 1
+Accessor.LIMIT_COOLDOWN = 15
 
 function Accessor.new(port)
 	local self = setmetatable({}, Accessor)
@@ -12,19 +14,32 @@ function Accessor.new(port)
 	return self
 end
 
-function Accessor:GetFromServer(requestString)
-	local url = Accessor.HOST:format(self.Port)..requestString
+local function Try(port, request)
+	local url = Accessor.HOST:format(port)..request
+	local tries = 0
 	
-	local succeeded, result = pcall(function()
-		return HttpService:GetAsync(url)
-	end)
-	
-	if not succeeded then
-		--warn("Couldn't access the local server at port "..self.Port.."; ensure it is running and HttpService.HttpEnabled is true.", 0)
-		return false
-	else
-		return result
+	while tries < Accessor.NUM_TRIES do
+		local succeeded, result = pcall(function()
+			return HttpService:GetAsync(url)
+		end)
+		
+		if not succeeded then
+			if result ~= "Number of requests exceeded limit" then
+				tries = tries + 1
+			else
+				print("[CodeSync] HttpService request limit has been reached; yielding for "..Accessor.LIMIT_COOLDOWN.." seconds before retrying.")
+				wait(Accessor.LIMIT_COOLDOWN)
+			end
+		else
+			return result
+		end
 	end
+	
+	return false
+end
+
+function Accessor:GetFromServer(requestString)
+	return Try(self.Port, requestString)
 end
 
 function Accessor:GetJson(request)
@@ -53,7 +68,7 @@ end
 
 function Accessor.TryReach(port)
 	return pcall(function()
-		return HttpService:JSONDecode(HttpService:GetAsync(Accessor.HOST:format(port).."info"))
+		return HttpService:JSONDecode(Try(port, "info"))
 	end)
 end
 

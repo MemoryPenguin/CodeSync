@@ -14,7 +14,7 @@ SyncManager.StopCauses = {
 	MISC = "Unexpected Lua error"
 }
 
-SyncManager.RequestInterval = 2.5
+SyncManager.RequestInterval = 5
 
 function SyncManager.new(port, targetStr)
 	local self = setmetatable({}, SyncManager)
@@ -61,7 +61,7 @@ function SyncManager:Start(stopCallback)
 	
 	spawn(function()
 		while self.Syncing == startTick do
-			wait(SyncManager.SyncInterval)
+			wait(SyncManager.RequestInterval)
 			local changes = self.Accessor:GetChangedFiles()
 			if not changes then
 				self:Stop(SyncManager.StopCauses.HTTP_ERROR)
@@ -100,6 +100,8 @@ end
 function SyncManager:Stop(reason)
 	reason = reason or SyncManager.StopCauses.USER
 	self.Syncing = false
+	
+	print("SyncManager is stopping sync (reason: "..reason..")")
 	
 	if self.SyncCallback then
 		self.SyncCallback(reason)
