@@ -1,0 +1,6 @@
+{
+  "Port": 4114,
+  "AllowExternalRequests": false,
+  "Path": "D:\\Documents\\YourFolder",
+  "SyncLocation": "game.ReplicatedStorage.YourProject"
+}
