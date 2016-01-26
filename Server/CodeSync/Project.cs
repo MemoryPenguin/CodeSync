@@ -53,7 +53,10 @@ namespace MemoryPenguin.CodeSync
 
                 foreach (string filePath in Directory.GetFiles(current))
                 {
-                    results.Add(Utility.MakeRelativePath(RootPath, filePath));
+                    if (fileWatcher.Extensions.Count == 0 || fileWatcher.Extensions.Contains(Path.GetExtension(e.FullPath)))
+                    {
+                        results.Add(Utility.MakeRelativePath(RootPath, filePath));
+                    }
                 }
 
                 foreach (string dirPath in Directory.GetDirectories(current))

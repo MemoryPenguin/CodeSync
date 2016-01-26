@@ -22,19 +22,22 @@ CodeSync uses a simple JSON config file that looks something like this:
 }
 ```
 
-Each key is required. You can find an example [here](config-example.json).
+You can find an example [here](config-example.json).
 
 ### Port
-This is the port that the CodeSync server runs on, and must be a number between 1 and 65535. It can't be occupied by other applications, and if you want to allow other computers to access the server, it needs to be accessible by the outside world.
+This is the port that the CodeSync server runs on, and must be a number between 1 and 65535. It can't be occupied by other applications, and if you want to allow other computers to access the server, it needs to be accessible by the outside world. If not supplied, this defaults to `4114`.
 
 ### AllowExternalRequests
-Setting this to true will cause the CodeSync server to respond to requests that didn't originate from the local machine.
+Setting this to true will cause the CodeSync server to respond to requests that didn't originate from the local machine. If not supplied, this defaults to `false`.
 
 ### Path
-This is the path that the CodeSync server exposes.
+This is the path that the CodeSync server exposes. This is required.
 
 ### SyncLocation
-This is where the files will be synced in ROBLOX. In this example, it's putting them in the child of `game.ReplicatedStorage` named `TestProject`. If TestProject (or anything else in the path) doesn't exist when you start syncing, it will create `Folder` instances to match this path.
+This is where the files will be synced in ROBLOX. In this example, it's putting them in the child of `game.ReplicatedStorage` named `TestProject`. If TestProject (or anything else in the path) doesn't exist when you start syncing, it will create `Folder` instances to match this path. This is required.
+
+### Extensions
+This is an array of file extensions that CodeSync should sync. If not supplied, CodeSync will sync `.lua` and `.rbxs` files in the target folder.
 
 ## File Names
 CodeSync determines what type of object (`LocalScript`, `ModuleScript`, or `Script`) a file is based on its name. It's simple:
