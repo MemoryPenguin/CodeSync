@@ -11,8 +11,17 @@ namespace MemoryPenguin.CodeSync
                 Console.WriteLine("Usage: CodeSync <configPath>");
                 return 1;
             }
+            Config config;
 
-            Config config = Config.LoadFromFile(args[0]);
+            try
+            {
+                config = Config.LoadFromFile(args[0]);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Error parsing config: {e.Message}");
+                return 1;
+            }
 
             Project project = new Project(config.Path, config.SyncLocation, config.SyncedExtensions);
             ProjectServer server = new ProjectServer(project, config.Port);
