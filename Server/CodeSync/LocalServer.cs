@@ -58,7 +58,7 @@ namespace MemoryPenguin.CodeSync
             listener.Start();
             IsRunning = true;
             
-            Console.WriteLine($"LocalServer instance has begun listening on port {Port}.");
+            Console.WriteLine($"Server has begun listening on port {Port}.");
 
             while (listener.IsListening)
             {

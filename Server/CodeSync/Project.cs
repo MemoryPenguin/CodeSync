@@ -21,11 +21,18 @@ namespace MemoryPenguin.CodeSync
 
         private Watcher fileWatcher;
 
-        public Project(string path, string robloxLocation)
+        public Project(string path, string robloxLocation, string[] extensions)
         {
             RootPath = path;
             RobloxStorageLocation = robloxLocation;
+
             fileWatcher = new Watcher(path);
+
+            foreach (string ext in extensions)
+            {
+                fileWatcher.Extensions.Add(ext);
+            }
+
             fileWatcher.Start();
         }
 

@@ -3,10 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
-using System.Linq;
 using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MemoryPenguin.CodeSync
 {
@@ -60,11 +57,20 @@ namespace MemoryPenguin.CodeSync
 
         private string SendFileList(HttpListenerRequest request, HttpListenerResponse response, NameValueCollection args)
         {
+            Console.WriteLine($"Sending file list to {request.RemoteEndPoint}.");
+
             return JsonConvert.SerializeObject(project.GetFilesInProject());
         }
 
         private string SendChanges(HttpListenerRequest request, HttpListenerResponse response, NameValueCollection args)
         {
+            Files.FileChange[] changes = project.GetChanges();
+
+            if (changes.Length > 0)
+            {
+                Console.WriteLine($"Sending {changes.Length} file changes to {request.RemoteEndPoint}.");
+            }
+            
             return JsonConvert.SerializeObject(project.GetChanges());
         }
 
@@ -72,6 +78,8 @@ namespace MemoryPenguin.CodeSync
         {
             string relPath = args["file"];
             string absPath = Path.Combine(project.RootPath, relPath);
+
+            Console.WriteLine($"Sending contents of file {absPath} to {request.RemoteEndPoint}.");
             
             return File.ReadAllText(absPath);
         }
@@ -81,6 +89,9 @@ namespace MemoryPenguin.CodeSync
             Dictionary<string, string> details = new Dictionary<string, string>();
             details["Target"] = project.RobloxStorageLocation;
             details["Source"] = project.RootPath;
+
+            Console.WriteLine($"Sending project info to {request.RemoteEndPoint}.");
+
             return JsonConvert.SerializeObject(details);
         }
     }

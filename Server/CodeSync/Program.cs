@@ -1,17 +1,9 @@
-﻿using MemoryPenguin.CodeSync.Files;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.IO;
+﻿using System;
 
 namespace MemoryPenguin.CodeSync
 {
     class Program
     {
-        private static Project project;
-
         static int Main(string[] args)
         {
             if (args.Length != 1)
@@ -20,15 +12,10 @@ namespace MemoryPenguin.CodeSync
                 return 1;
             }
 
-            Dictionary<string, dynamic> settings = JsonConvert.DeserializeObject<Dictionary<string, dynamic>>(File.ReadAllText(args[0]));
-            int port = (int)settings["Port"];
-            bool allowExternal = (bool)settings["AllowExternalRequests"];
-            string path = (string)settings["Path"];
-            string syncTarget = (string)settings["SyncLocation"];
+            Config config = Config.LoadFromFile(args[0]);
 
-            project = new Project(path, syncTarget);
-
-            ProjectServer server = new ProjectServer(project, port);
+            Project project = new Project(config.Path, config.SyncLocation, config.SyncedExtensions);
+            ProjectServer server = new ProjectServer(project, config.Port);
             server.Start();
             Console.Read();
             server.Stop();
