@@ -22,7 +22,7 @@ CodeSync uses a simple JSON config file that looks something like this:
 }
 ```
 
-You can find an example [here](config-example.json).
+You can find an example [here](config-example.json). There are five keys:
 
 ### Port
 This is the port that the CodeSync server runs on, and must be a number between 1 and 65535. It can't be occupied by other applications, and if you want to allow other computers to access the server, it needs to be accessible by the outside world. If not supplied, this defaults to `4114`.
