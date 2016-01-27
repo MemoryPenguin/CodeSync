@@ -1,92 +1,11 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 	<External>null</External>
 	<External>nil</External>
-	<Item class="Script" referent="RBXE433860AA736419BA555957576DE7B18">
-		<Properties>
-			<bool name="Disabled">false</bool>
-			<Content name="LinkedSource"><null></null></Content>
-			<string name="Name">CodeSync</string>
-			<ProtectedString name="Source"><![CDATA[local plugin = plugin -- squelch warnings
-
-local Modules = script.Parent.Modules
-
-local Accessor = require(Modules.Accessor)
-local Path = require(Modules.Path)
-local SyncManager = require(Modules.SyncManager)
-local UI = require(Modules.UI)
-
-local Toolbar = plugin:CreateToolbar("CodeSync")
-local Button = Toolbar:CreateButton("CodeSync", "Allows you to synchronize scripts from your computer to ROBLOX.", "rbxassetid://347676411")
-
-local Open = false
-
-Button.Click:connect(function()
-	Open = not Open
-	Button:SetActive(Open)
-	if Open then
-		UI:Show()
-	else
-		UI:Hide()
-	end
-end)
-
-local CurrentManager = nil
-local InfoFormat = "%s\nSource: %s\nTarget: %s"
-
-local function StopSync()
-	CurrentManager:Stop()
-	print("Stopped sync.")
-	UI.ToggleButton.Text = "Start sync"
-	UI.CheckPort()
-	CurrentManager = nil
-	UI.ThawPortBox()
-end
-
-local function StartSync()
-	UI.FreezePortBox()
-	local port = UI.GetPort()
-	UI.SetInfoText("Testing port...")
-	local success, info = Accessor.TryReach(port)
-	
-	if success then
-		UI.SetInfoText("Starting sync...")
-		
-		CurrentManager = SyncManager.new(port, info.Target)
-		CurrentManager:Start(function(reason)
-			if reason ~= SyncManager.StopReasons.USER then
-				UI.SetInfoText(("Got an error from the sync manager:\n%s"):format(reason))
-			end
-			
-			StopSync()
-		end)
-		
-		print("Started sync.")
-		UI.ToggleButton.Text = "Stop sync"
-		UI.SetInfoText(InfoFormat:format("Currently syncing", info.Source, info.Target))
-	else
-		UI.ThawPortBox()
-		UI.SetInfoText("Can't reach server on port "..port..", please ensure HttpService.HttpEnabled is true and double-check your configuration.")
-	end
-end
-
-UI.ToggleButton.MouseButton1Click:connect(function()
-	UI.FreezeButton()
-
-	if not CurrentManager then
-		StartSync()
-	else
-		StopSync()
-	end
-	
-	UI.ThawButton()
-end)]]></ProtectedString>
-		</Properties>
-	</Item>
-	<Item class="Folder" referent="RBX5C160317CC244017833FF5F657B9417E">
+	<Item class="Folder" referent="RBX06565A83F021466284744FEEDB5211EE">
 		<Properties>
 			<string name="Name">Modules</string>
 		</Properties>
-		<Item class="ModuleScript" referent="RBXC266CC8989934FC2894A64034411955C">
+		<Item class="ModuleScript" referent="RBX5D4F8A12FE1B42CE81932D3A6BF326A3">
 			<Properties>
 				<Content name="LinkedSource"><null></null></Content>
 				<string name="Name">Accessor</string>
@@ -96,27 +15,28 @@ local Accessor = {}
 Accessor.__index = Accessor
 
 Accessor.HOST = "http://localhost:%d/"
-Accessor.NUM_TRIES = 1
+Accessor.NUM_TRIES = 2
 Accessor.LIMIT_COOLDOWN = 15
 
 function Accessor.new(port)
 	local self = setmetatable({}, Accessor)
 	self.Port = port
-	
+
 	return self
 end
 
 local function Try(port, request)
 	local url = Accessor.HOST:format(port)..request
 	local tries = 0
-	
+
 	while tries < Accessor.NUM_TRIES do
 		local succeeded, result = pcall(function()
 			return HttpService:GetAsync(url)
 		end)
-		
+
 		if not succeeded then
 			if result ~= "Number of requests exceeded limit" then
+				print("[CodeSync] HttpService returned an error ("..result.."), trying again.")
 				tries = tries + 1
 			else
 				print("[CodeSync] HttpService request limit has been reached; yielding for "..Accessor.LIMIT_COOLDOWN.." seconds before retrying.")
@@ -126,7 +46,7 @@ local function Try(port, request)
 			return result
 		end
 	end
-	
+
 	return false
 end
 
@@ -136,7 +56,7 @@ end
 
 function Accessor:GetJson(request)
 	local json = self:GetFromServer(request)
-	
+
 	if json then
 		return HttpService:JSONDecode(json)
 	end
@@ -164,10 +84,11 @@ function Accessor.TryReach(port)
 	end)
 end
 
-return Accessor]]></ProtectedString>
+return Accessor
+]]></ProtectedString>
 			</Properties>
 		</Item>
-		<Item class="ModuleScript" referent="RBXB467AF5B80F748869B5B766D4C74977C">
+		<Item class="ModuleScript" referent="RBX31C630A0000A4DECB4F5159004044DB4">
 			<Properties>
 				<Content name="LinkedSource"><null></null></Content>
 				<string name="Name">Path</string>
@@ -253,7 +174,7 @@ end
 return Path]]></ProtectedString>
 			</Properties>
 		</Item>
-		<Item class="ModuleScript" referent="RBXFE4FF18E93CE402A943D8CD5AA313476">
+		<Item class="ModuleScript" referent="RBX6270860272E1482198A514DBB3ED7A38">
 			<Properties>
 				<Content name="LinkedSource"><null></null></Content>
 				<string name="Name">Project</string>
@@ -335,7 +256,7 @@ end
 return Project]]></ProtectedString>
 			</Properties>
 		</Item>
-		<Item class="ModuleScript" referent="RBXBB4CBDAF2B3740369A59D224B4FD8D91">
+		<Item class="ModuleScript" referent="RBXDC03CDAEE8B740329A11810F01A318F7">
 			<Properties>
 				<Content name="LinkedSource"><null></null></Content>
 				<string name="Name">ScriptHelper</string>
@@ -360,7 +281,7 @@ end
 return ScriptHelper]]></ProtectedString>
 			</Properties>
 		</Item>
-		<Item class="ModuleScript" referent="RBXBDE542D1557B431B87F2DF14E9E098CE">
+		<Item class="ModuleScript" referent="RBX9DB14E73B88D4F568F6676E6A72395B4">
 			<Properties>
 				<Content name="LinkedSource"><null></null></Content>
 				<string name="Name">UI</string>
@@ -445,11 +366,11 @@ UI.CheckPort()
 
 return UI]]></ProtectedString>
 			</Properties>
-			<Item class="ScreenGui" referent="RBX2E77F1FC71D14A58AA8063E0B8531D86">
+			<Item class="ScreenGui" referent="RBX34466E4AA62D4F34BCC1B3DF7DEB5F99">
 				<Properties>
 					<string name="Name">CodeSyncUI</string>
 				</Properties>
-				<Item class="Frame" referent="RBXCCCA25217C93431BB84AF538944DB533">
+				<Item class="Frame" referent="RBXF672C83B55E04969BE56A87B1ACCE24B">
 					<Properties>
 						<bool name="Active">false</bool>
 						<Color3 name="BackgroundColor3">4292664540</Color3>
@@ -483,7 +404,7 @@ return UI]]></ProtectedString>
 						<bool name="Visible">true</bool>
 						<int name="ZIndex">1</int>
 					</Properties>
-					<Item class="TextLabel" referent="RBX16D9F716FABA4653A781B314C261C0D7">
+					<Item class="TextLabel" referent="RBX8F66D95724AE4116B24F7CAC91A13BDE">
 						<Properties>
 							<bool name="Active">false</bool>
 							<Color3 name="BackgroundColor3">4293980400</Color3>
@@ -527,7 +448,7 @@ return UI]]></ProtectedString>
 							<bool name="Visible">true</bool>
 							<int name="ZIndex">1</int>
 						</Properties>
-						<Item class="ImageLabel" referent="RBX3AB4AD9A979B42058E669C0D72DCCA46">
+						<Item class="ImageLabel" referent="RBX9EBDF69FBAE14175884A36237FB20186">
 							<Properties>
 								<bool name="Active">false</bool>
 								<Color3 name="BackgroundColor3">4294967295</Color3>
@@ -584,7 +505,7 @@ return UI]]></ProtectedString>
 							</Properties>
 						</Item>
 					</Item>
-					<Item class="Frame" referent="RBX6F58BB4DEBEA41D8973D283FB6888AE6">
+					<Item class="Frame" referent="RBX389F65B65C5549AF847F0908BD8A963C">
 						<Properties>
 							<bool name="Active">false</bool>
 							<Color3 name="BackgroundColor3">4293980400</Color3>
@@ -618,7 +539,7 @@ return UI]]></ProtectedString>
 							<bool name="Visible">true</bool>
 							<int name="ZIndex">1</int>
 						</Properties>
-						<Item class="TextButton" referent="RBXCEC2AC0C54D8414EA4E00D3B34E1C9FE">
+						<Item class="TextButton" referent="RBX1B09FD2807EB4D1D885E496ACA93E52F">
 							<Properties>
 								<bool name="Active">false</bool>
 								<bool name="AutoButtonColor">false</bool>
@@ -667,7 +588,7 @@ return UI]]></ProtectedString>
 								<int name="ZIndex">1</int>
 							</Properties>
 						</Item>
-						<Item class="Frame" referent="RBXDBB4A5551F1149A0A4E3629718CEA9F5">
+						<Item class="Frame" referent="RBX156FA5BB32484EB786FA3B54CD25693F">
 							<Properties>
 								<bool name="Active">false</bool>
 								<Color3 name="BackgroundColor3">4293980400</Color3>
@@ -701,7 +622,7 @@ return UI]]></ProtectedString>
 								<bool name="Visible">true</bool>
 								<int name="ZIndex">1</int>
 							</Properties>
-							<Item class="TextLabel" referent="RBX241D5B11D0E243C392C0096A167B5270">
+							<Item class="TextLabel" referent="RBXEEFD658A2A394326B4FCC845B906D859">
 								<Properties>
 									<bool name="Active">false</bool>
 									<Color3 name="BackgroundColor3">4293980400</Color3>
@@ -746,7 +667,7 @@ return UI]]></ProtectedString>
 									<int name="ZIndex">1</int>
 								</Properties>
 							</Item>
-							<Item class="TextBox" referent="RBX3C4B702A2FCE40019AAE8E2E30F39934">
+							<Item class="TextBox" referent="RBX79D7F57FA466492D993F97332549D80F">
 								<Properties>
 									<bool name="Active">true</bool>
 									<Color3 name="BackgroundColor3">4293980400</Color3>
@@ -794,7 +715,7 @@ return UI]]></ProtectedString>
 								</Properties>
 							</Item>
 						</Item>
-						<Item class="TextLabel" referent="RBXB9F443C602EA4E7D9A4B47D853B1F1EC">
+						<Item class="TextLabel" referent="RBX0F3D50A6BCF9457D9887DE44CCF3F061">
 							<Properties>
 								<bool name="Active">false</bool>
 								<Color3 name="BackgroundColor3">4294967295</Color3>
@@ -843,7 +764,7 @@ return UI]]></ProtectedString>
 				</Item>
 			</Item>
 		</Item>
-		<Item class="ModuleScript" referent="RBXED19FBD790A64547A8E19E3D46C11D0A">
+		<Item class="ModuleScript" referent="RBX31684481CD91448AA1643018DD9FF8A2">
 			<Properties>
 				<Content name="LinkedSource"><null></null></Content>
 				<string name="Name">ScriptManager</string>
@@ -898,7 +819,7 @@ end
 return ScriptManager]]></ProtectedString>
 			</Properties>
 		</Item>
-		<Item class="ModuleScript" referent="RBXF68CD68137CC4058857B6DC24F391420">
+		<Item class="ModuleScript" referent="RBX90D018F7A6FD4B0EB105DECF246E326B">
 			<Properties>
 				<Content name="LinkedSource"><null></null></Content>
 				<string name="Name">SyncManager</string>
@@ -911,30 +832,30 @@ local SyncManager = {}
 SyncManager.__index = SyncManager
 
 SyncManager.StopCauses = {
-	TREE_MODIFIED = "The tree was modified unexpectedly", 
+	TREE_MODIFIED = "The tree was modified unexpectedly",
 	HTTP_ERROR = "Couldn't reach the HTTP server",
 	BAD_HTTP_RESPONSE = "Got an unsupported or malformed HTTP response",
 	USER = "Stopped by the user",
 	MISC = "Unexpected Lua error"
 }
 
-SyncManager.RequestInterval = 15
+SyncManager.RequestInterval = 5
 
 function SyncManager.new(port, targetStr)
 	local self = setmetatable({}, SyncManager)
 	self.Accessor = Accessor.new(port)
-	
+
 	local target = Path.CreateTree(targetStr)
 	self.ScriptManager = ScriptManager.new(target)
-	
+
 	target.AncestryChanged:connect(function()
 		self:Stop(SyncManager.StopCauses.TREE_MODIFIED)
 	end)
-	
+
 	target.Changed:connect(function()
 		self:Stop(SyncManager.StopCauses.TREE_MODIFIED)
 	end)
-	
+
 	self.Syncing = false
 	return self
 end
@@ -943,46 +864,46 @@ function SyncManager:Start(stopCallback)
 	local startTick = tick()
 	self.Syncing = startTick
 	self.StopCallback = stopCallback
-	
+
 	local list = self.Accessor:GetFileList()
-	
+
 	if not list then
 		self:Stop(SyncManager.StopCauses.HTTP_ERROR)
 		return
 	end
-	
+
 	for _, filePath in ipairs(list) do
 		local contents = self.Accessor:ReadFile(filePath)
-		
+
 		if not contents then
 			self:Stop(SyncManager.StopCauses.HTTP_ERROR)
 			return
 		end
-		
+
 		self:AddFile(filePath)
 		self:UpdateFile(filePath, contents)
 	end
-	
+
 	spawn(function()
 		while self.Syncing == startTick do
-			wait(SyncManager.SyncInterval)
+			wait(SyncManager.RequestInterval)
 			local changes = self.Accessor:GetChangedFiles()
 			if not changes then
 				self:Stop(SyncManager.StopCauses.HTTP_ERROR)
 				return
 			end
-			
+
 			for _, change in ipairs(changes) do
 				-- modify
 				if change.Type == 0 then
 					local rbxPath = Path.OSToROBLOXPath(change.Path)
 
 					if not self.ScriptManager:GetObject(rbxPath) then
-						self:CreateObject(rbxPath, ScriptHelper.GetType(change.Path))
+						self:AddFile(change.Path)
 					end
-					
+
 					local contents = self.Accessor:ReadFile(change.Path)
-					
+
 					if not contents then
 						self:Stop(SyncManager.StopCauses.HTTP_ERROR)
 						return
@@ -1004,9 +925,9 @@ end
 function SyncManager:Stop(reason)
 	reason = reason or SyncManager.StopCauses.USER
 	self.Syncing = false
-	
+
 	print("SyncManager is stopping sync (reason: "..reason..")")
-	
+
 	if self.SyncCallback then
 		self.SyncCallback(reason)
 	end
@@ -1028,8 +949,90 @@ function SyncManager:RemoveFile(file)
 	self.ScriptManager:RemoveObject(rbxPath)
 end
 
-return SyncManager]]></ProtectedString>
+return SyncManager
+]]></ProtectedString>
 			</Properties>
 		</Item>
+	</Item>
+	<Item class="Script" referent="RBXA513A55AB8FF4FD7AE4A9ADE9961BE47">
+		<Properties>
+			<bool name="Disabled">false</bool>
+			<Content name="LinkedSource"><null></null></Content>
+			<string name="Name">CodeSync</string>
+			<ProtectedString name="Source"><![CDATA[local plugin = plugin -- squelch warnings
+
+local Modules = script.Parent.Modules
+
+local Accessor = require(Modules.Accessor)
+local Path = require(Modules.Path)
+local SyncManager = require(Modules.SyncManager)
+local UI = require(Modules.UI)
+
+local Toolbar = plugin:CreateToolbar("CodeSync")
+local Button = Toolbar:CreateButton("CodeSync", "Allows you to synchronize scripts from your computer to ROBLOX.", "rbxassetid://347676411")
+
+local Open = false
+
+Button.Click:connect(function()
+	Open = not Open
+	Button:SetActive(Open)
+	if Open then
+		UI:Show()
+	else
+		UI:Hide()
+	end
+end)
+
+local CurrentManager = nil
+local InfoFormat = "%s\nSource: %s\nTarget: %s"
+
+local function StopSync()
+	CurrentManager:Stop()
+	print("Stopped sync.")
+	UI.ToggleButton.Text = "Start sync"
+	UI.CheckPort()
+	CurrentManager = nil
+	UI.ThawPortBox()
+end
+
+local function StartSync()
+	UI.FreezePortBox()
+	local port = UI.GetPort()
+	UI.SetInfoText("Testing port...")
+	local success, info = Accessor.TryReach(port)
+	
+	if success then
+		UI.SetInfoText("Starting sync...")
+		
+		CurrentManager = SyncManager.new(port, info.Target)
+		CurrentManager:Start(function(reason)
+			if reason ~= SyncManager.StopReasons.USER then
+				UI.SetInfoText(("Got an error from the sync manager:\n%s"):format(reason))
+			end
+			
+			StopSync()
+		end)
+		
+		print("Started sync.")
+		UI.ToggleButton.Text = "Stop sync"
+		UI.SetInfoText(InfoFormat:format("Currently syncing", info.Source, info.Target))
+	else
+		UI.ThawPortBox()
+		UI.SetInfoText("Can't reach server on port "..port..", please ensure HttpService.HttpEnabled is true and double-check your configuration.")
+	end
+end
+
+UI.ToggleButton.MouseButton1Click:connect(function()
+	UI.FreezeButton()
+
+	if not CurrentManager then
+		StartSync()
+	else
+		StopSync()
+	end
+	
+	UI.ThawButton()
+end)]]></ProtectedString>
+		</Properties>
 	</Item>
 </roblox>
