@@ -25,7 +25,7 @@ local function Try(port, request)
 
 		if not succeeded then
 			if result ~= "Number of requests exceeded limit" then
-				print("http err trying again")
+				print("[CodeSync] HttpService returned an error ("..result.."), trying again.")
 				tries = tries + 1
 			else
 				print("[CodeSync] HttpService request limit has been reached; yielding for "..Accessor.LIMIT_COOLDOWN.." seconds before retrying.")
@@ -47,7 +47,6 @@ function Accessor:GetJson(request)
 	local json = self:GetFromServer(request)
 
 	if json then
-		print(json)
 		return HttpService:JSONDecode(json)
 	end
 end

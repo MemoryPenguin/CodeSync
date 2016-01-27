@@ -64,22 +64,16 @@ function SyncManager:Start(stopCallback)
 			wait(SyncManager.RequestInterval)
 			local changes = self.Accessor:GetChangedFiles()
 			if not changes then
-				print("inval change")
 				self:Stop(SyncManager.StopCauses.HTTP_ERROR)
 				return
 			end
 
-			print(changes)
-			print(#changes)
-
 			for _, change in ipairs(changes) do
-				print("CHANGE: "..change.Path..", TYPE: "..change.Type)
 				-- modify
 				if change.Type == 0 then
 					local rbxPath = Path.OSToROBLOXPath(change.Path)
 
 					if not self.ScriptManager:GetObject(rbxPath) then
-						print("Creating missing object for path "..change.Path)
 						self:AddFile(change.Path)
 					end
 
