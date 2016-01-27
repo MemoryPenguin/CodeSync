@@ -7,7 +7,7 @@ local SyncManager = {}
 SyncManager.__index = SyncManager
 
 SyncManager.StopCauses = {
-	TREE_MODIFIED = "The tree was modified unexpectedly", 
+	TREE_MODIFIED = "The tree was modified unexpectedly",
 	HTTP_ERROR = "Couldn't reach the HTTP server",
 	BAD_HTTP_RESPONSE = "Got an unsupported or malformed HTTP response",
 	USER = "Stopped by the user",
@@ -19,18 +19,18 @@ SyncManager.RequestInterval = 5
 function SyncManager.new(port, targetStr)
 	local self = setmetatable({}, SyncManager)
 	self.Accessor = Accessor.new(port)
-	
+
 	local target = Path.CreateTree(targetStr)
 	self.ScriptManager = ScriptManager.new(target)
-	
+
 	target.AncestryChanged:connect(function()
 		self:Stop(SyncManager.StopCauses.TREE_MODIFIED)
 	end)
-	
+
 	target.Changed:connect(function()
 		self:Stop(SyncManager.StopCauses.TREE_MODIFIED)
 	end)
-	
+
 	self.Syncing = false
 	return self
 end
@@ -39,46 +39,52 @@ function SyncManager:Start(stopCallback)
 	local startTick = tick()
 	self.Syncing = startTick
 	self.StopCallback = stopCallback
-	
+
 	local list = self.Accessor:GetFileList()
-	
+
 	if not list then
 		self:Stop(SyncManager.StopCauses.HTTP_ERROR)
 		return
 	end
-	
+
 	for _, filePath in ipairs(list) do
 		local contents = self.Accessor:ReadFile(filePath)
-		
+
 		if not contents then
 			self:Stop(SyncManager.StopCauses.HTTP_ERROR)
 			return
 		end
-		
+
 		self:AddFile(filePath)
 		self:UpdateFile(filePath, contents)
 	end
-	
+
 	spawn(function()
 		while self.Syncing == startTick do
 			wait(SyncManager.RequestInterval)
 			local changes = self.Accessor:GetChangedFiles()
 			if not changes then
+				print("inval change")
 				self:Stop(SyncManager.StopCauses.HTTP_ERROR)
 				return
 			end
-			
+
+			print(changes)
+			print(#changes)
+
 			for _, change in ipairs(changes) do
+				print("CHANGE: "..change.Path..", TYPE: "..change.Type)
 				-- modify
 				if change.Type == 0 then
 					local rbxPath = Path.OSToROBLOXPath(change.Path)
 
 					if not self.ScriptManager:GetObject(rbxPath) then
-						self:CreateObject(rbxPath, ScriptHelper.GetType(change.Path))
+						print("Creating missing object for path "..change.Path)
+						self:AddFile(change.Path)
 					end
-					
+
 					local contents = self.Accessor:ReadFile(change.Path)
-					
+
 					if not contents then
 						self:Stop(SyncManager.StopCauses.HTTP_ERROR)
 						return
@@ -100,9 +106,9 @@ end
 function SyncManager:Stop(reason)
 	reason = reason or SyncManager.StopCauses.USER
 	self.Syncing = false
-	
+
 	print("SyncManager is stopping sync (reason: "..reason..")")
-	
+
 	if self.SyncCallback then
 		self.SyncCallback(reason)
 	end

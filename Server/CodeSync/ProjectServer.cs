@@ -71,7 +71,7 @@ namespace MemoryPenguin.CodeSync
                 Console.WriteLine($"Sending {changes.Length} file changes to {request.RemoteEndPoint}.");
             }
             
-            return JsonConvert.SerializeObject(project.GetChanges());
+            return JsonConvert.SerializeObject(changes);
         }
 
         private string ReadFile(HttpListenerRequest request, HttpListenerResponse response, NameValueCollection args)
