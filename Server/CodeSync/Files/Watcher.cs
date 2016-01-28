@@ -35,12 +35,30 @@ namespace MemoryPenguin.CodeSync.Files
             watcher.Changed += WatcherChange;
             watcher.Deleted += WatcherChange;
             watcher.Created += WatcherChange;
-            watcher.Renamed += WatcherChange;
+            watcher.Renamed += FileRename;
+        }
+
+        private bool ShouldSync(string path)
+        {
+            return Extensions.Count == 0 || Extensions.Contains(Path.GetExtension(path));
+        }
+
+        private void FileRename(object sender, RenamedEventArgs e)
+        {
+            if (ShouldSync(e.FullPath))
+            {
+                changes.Add(new FileChange(Utility.MakeRelativePath(watchRoot, e.FullPath)));
+            }
+
+            // emit delete event for old path so the plugin cleans it up
+            if (ShouldSync(e.OldFullPath)) {
+                changes.Add(new FileChange(Utility.MakeRelativePath(watchRoot, e.OldFullPath), ChangeType.Delete));
+            }
         }
 
         private void WatcherChange(object sender, FileSystemEventArgs e)
         {
-            if (Extensions.Count == 0 || Extensions.Contains(Path.GetExtension(e.FullPath)))
+            if (ShouldSync(e.FullPath))
             {
                 string relativePath = Utility.MakeRelativePath(watchRoot, e.FullPath);
 
