@@ -1,6 +1,14 @@
 ﻿{
   "Port": 4114,
   "AllowExternalRequests": false,
-  "Path": "D:\\Documents\\CodeSync Test",
-  "SyncLocation": "game.ReplicatedStorage.TestProject"
+  "Folders": [
+    {
+      "Path": "D:\\Documents\\CodeSync Tests\\Test 1",
+      "Target": "game.ReplicatedStorage.Test"
+    },
+    {
+      "Path": "D:\\Documents\\CodeSync Tests\\Test 2",
+      "Target": "game.ServerScriptService.Test"
+    }
+  ]
 }
