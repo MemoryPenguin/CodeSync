@@ -6,9 +6,9 @@ using System.Net;
 using System.Text;
 using System.Web;
 
-namespace MemoryPenguin.CodeSync
+namespace MemoryPenguin.CodeSync.Network
 {
-    class LocalServer
+    class LocalServer : IDisposable
     {
         /// <summary>
         /// Whether to allow requests that did not originate from the local machine.
@@ -48,11 +48,19 @@ namespace MemoryPenguin.CodeSync
             Port = port;
         }
 
+        /// <summary>
+        /// Adds a handler to the server that is invoked when a request is made to a specific URL.
+        /// </summary>
+        /// <param name="method">The method for which the handler should respond to</param>
+        /// <param name="handler">The handler</param>
         public void AddHandler(string method, Func<HttpListenerRequest, HttpListenerResponse, NameValueCollection, string> handler)
         {
             handlers.Add(method, handler);
         }
 
+        /// <summary>
+        /// Starts the server.
+        /// </summary>
         public void Start()
         {
             listener.Start();
@@ -122,10 +130,17 @@ namespace MemoryPenguin.CodeSync
             }
         }
 
+        /// <summary>
+        /// Stops the server.
+        /// </summary>
         public void Stop()
         {
             IsRunning = false;
             listener.Stop();
+        }
+
+        public void Dispose()
+        {
             listener.Close();
         }
     }
