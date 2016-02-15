@@ -44,6 +44,15 @@ namespace MemoryPenguin.CodeSync.Files
         {
             return Path == other.Path && Type == other.Type;
         }
+
+        public static bool operator ==(FileChange obj, FileChange other) {
+            return obj.Equals(other);
+        }
+
+        public static bool operator !=(FileChange obj, FileChange other)
+        {
+            return !obj.Equals(other);
+        }
     }
 
     static class ChangeTypeExtender

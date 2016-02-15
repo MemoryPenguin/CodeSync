@@ -88,7 +88,7 @@ namespace MemoryPenguin.CodeSync
         {
             Dictionary<string, string> details = new Dictionary<string, string>();
             details["Target"] = project.RobloxStorageLocation;
-            details["Source"] = project.RootPath;
+            details["Source"] = Path.GetFullPath(project.RootPath);
 
             Console.WriteLine($"Sending project info to {request.RemoteEndPoint}.");
 

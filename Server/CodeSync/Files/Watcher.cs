@@ -4,6 +4,9 @@ using System.IO;
 
 namespace MemoryPenguin.CodeSync.Files
 {
+    /// <summary>
+    /// Responsible for watching a directory.
+    /// </summary>
     class Watcher : IDisposable
     {
         private string watchRoot;
@@ -13,15 +16,17 @@ namespace MemoryPenguin.CodeSync.Files
         /// <summary>
         /// All the extensions to be tracked. If empty, all extensions will be tracked.
         /// </summary>
-        public HashSet<string> Extensions { get; private set; }
+        public ISet<string> Extensions { get; private set; }
 
-        public bool IsWatching
-        {
-            get
-            {
-                return watcher.EnableRaisingEvents;
-            }
-        }
+        /// <summary>
+        /// Whether the watcher is currently watching or not.
+        /// </summary>
+        public bool IsWatching { get { return watcher.EnableRaisingEvents; } }
+
+        /// <summary>
+        /// The root directory that the watcher is using.
+        /// </summary>
+        public string WatchRoot { get { return watchRoot; } }
 
         public Watcher(string root)
         {
@@ -29,13 +34,12 @@ namespace MemoryPenguin.CodeSync.Files
             changes = new HashSet<FileChange>();
             Extensions = new HashSet<string>();
             watcher = new FileSystemWatcher(root);
-            watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName;
             watcher.IncludeSubdirectories = true;
             
             watcher.Changed += WatcherChange;
             watcher.Deleted += WatcherChange;
             watcher.Created += WatcherChange;
-            watcher.Renamed += FileRename;
+            watcher.Renamed += FileRename; // special handler needed, see https://github.com/MemoryPenguin/CodeSync/issues/1
         }
 
         private bool ShouldSync(string path)
@@ -47,12 +51,13 @@ namespace MemoryPenguin.CodeSync.Files
         {
             if (ShouldSync(e.FullPath))
             {
-                changes.Add(new FileChange(Utility.MakeRelativePath(watchRoot, e.FullPath)));
+                AddChange(new FileChange(e.FullPath, ChangeType.Modify));
             }
 
-            // emit delete event for old path so the plugin cleans it up
-            if (ShouldSync(e.OldFullPath)) {
-                changes.Add(new FileChange(Utility.MakeRelativePath(watchRoot, e.OldFullPath), ChangeType.Delete));
+            // emit delete change for old path so the plugin cleans it up
+            if (ShouldSync(e.OldFullPath))
+            {
+                AddChange(new FileChange(e.OldFullPath, ChangeType.Delete));
             }
         }
 
@@ -60,16 +65,15 @@ namespace MemoryPenguin.CodeSync.Files
         {
             if (ShouldSync(e.FullPath))
             {
-                string relativePath = Utility.MakeRelativePath(watchRoot, e.FullPath);
-
-                // Remove all prior changes like modifications
-                if (e.ChangeType == WatcherChangeTypes.Deleted)
-                {
-                    changes.RemoveWhere(change => change.Path == relativePath);
-                }
-
-                changes.Add(new FileChange(relativePath, e.ChangeType.ToChangeType()));
+                AddChange(new FileChange(e.FullPath, e.ChangeType.ToChangeType()));
             }
+        }
+
+        private void AddChange(FileChange newChange)
+        {
+            // Remove prior changes
+            changes.RemoveWhere(change => change.Path == newChange.Path);
+            changes.Add(newChange);
         }
 
         public FileChange[] GetFileChanges()
