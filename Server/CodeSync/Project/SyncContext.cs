@@ -8,17 +8,31 @@ using System.Threading.Tasks;
 namespace MemoryPenguin.CodeSync.Project
 {
     /// <summary>
-    /// Represents a sync context, which synchronizes a folder tree to Studio.
+    /// Represents a synchronization context, which manipulates a directory tree.
     /// </summary>
     class SyncContext : IDisposable
     {
         private FileSystemWatcher watcher;
-        private ICollection<string> extensions;
+
+        /// <summary>
+        /// The root path that the context is moving from the file system to ROBLOX Studio.
+        /// </summary>
+        public string RootPath { get; private set; }
+
+        /// <summary>
+        /// The file extensions the context is synchronizing.
+        /// </summary>
+        public ICollection<string> Extensions { get; private set; }
 
         public SyncContext(string path)
         {
             watcher = new FileSystemWatcher(path);
-            extensions = new HashSet<string>();
+            Extensions = new HashSet<string>();
+        }
+
+        private string MakeRelativePath(string subPath)
+        {
+
         }
 
         public void Dispose()

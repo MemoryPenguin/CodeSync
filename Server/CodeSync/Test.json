@@ -1,6 +1,5 @@
 ﻿{
   "Port": 4114,
-  "AllowExternalRequests": false,
   "Folders": [
     {
       "Path": "D:\\Documents\\CodeSync Tests\\Test 1",
