@@ -11,12 +11,6 @@ namespace MemoryPenguin.CodeSync.Network
     class LocalServer : IDisposable
     {
         /// <summary>
-        /// Whether to allow requests that did not originate from the local machine.
-        /// Enabling this allows exposure of the file system to remote systems. Use with caution.
-        /// </summary>
-        public bool AllowExternalRequests { get; set; }
-
-        /// <summary>
         /// The port the server is running on.
         /// </summary>
         public int Port { get; private set; }
@@ -42,9 +36,7 @@ namespace MemoryPenguin.CodeSync.Network
             listener.Prefixes.Add($"http://localhost:{port}/");
             listener.Prefixes.Add($"http://127.0.0.1:{port}/");
             listener.AuthenticationSchemes = AuthenticationSchemes.Anonymous;
-
-            // by default
-            AllowExternalRequests = false;
+            
             Port = port;
         }
 
@@ -80,7 +72,7 @@ namespace MemoryPenguin.CodeSync.Network
                     // LocalPath starts with a /; we don't want that
                     string target = request.Url.LocalPath.Substring(1);
                         
-                    if (request.IsLocal || AllowExternalRequests)
+                    if (request.IsLocal)
                     {
                         // much cleaner than regexes
                         NameValueCollection args = HttpUtility.ParseQueryString(request.Url.Query);
@@ -139,6 +131,9 @@ namespace MemoryPenguin.CodeSync.Network
             listener.Stop();
         }
 
+        /// <summary>
+        /// Releases resources used by the server.
+        /// </summary>
         public void Dispose()
         {
             listener.Close();

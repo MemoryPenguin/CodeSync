@@ -10,11 +10,20 @@ namespace MemoryPenguin.CodeSync
     {
         private static string[] defaultExtensions = new string[] { ".lua", ".rbxs" };
         
+        /// <summary>
+        /// The port the server should run on
+        /// </summary>
         [JsonProperty("Port")]
         public int Port { get; set; }
-        [JsonProperty("AllowExternalRequests")]
-        public bool AllowExternalRequests { get; set; }
+        /// <summary>
+        /// Which extensions to sync
+        /// </summary>
         [JsonProperty("Extensions")]
         public string[] SyncedExtensions { get; set; }
+        /// <summary>
+        /// Files and paths to ignore
+        /// </summary>
+        [JsonProperty("Ignore")]
+        public string[] IgnoredFiles { get; set; }
     }
 }
