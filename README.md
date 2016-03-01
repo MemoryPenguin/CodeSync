@@ -1,6 +1,8 @@
 # CodeSync
 CodeSync is a way to migrate a folder of Lua code to ROBLOX Studio and keep the Studio version up-to-date. This lets you use external editors and version control systems with ROBLOX games (relatively) easily.
 
+**CodeSync does not work with Team Create as plugins cannot make HTTP requests if Team Create is in use.**
+
 ## Setup
 
 1. Install the plugin from [here](http://www.roblox.com/CodeSync-item?id=348031028).
